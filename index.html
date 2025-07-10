@@ -403,6 +403,8 @@
     </div>
   
     <script>
+      // URL do seu backend no Render
+      const API_ROOT = 'https://dwyt-wbro.onrender.com';
       let fetchedFormats = [];        // armazena os formats vindos do servidor
       let currentDownloadId = null;
       let statusCheckInterval = null;
@@ -533,7 +535,7 @@
         try {
           loadingSpinner.style.display = 'block';
           showStatus('Obtendo informações...','info');
-          const res = await fetch('/api/info', {
+          const res = await fetch(`${API_ROOT}/api/info`, {
             method:'POST',
             headers:{'Content-Type':'application/json'},
             body: JSON.stringify({ url })
@@ -571,7 +573,7 @@
         try {
           loadingSpinner.style.display = 'block';
           showStatus('Iniciando download...','info');
-          const res = await fetch('/api/download', {
+          const res = await fetch(`${API_ROOT}/api/download`, {
             method:'POST',
             headers:{'Content-Type':'application/json'},
             body: JSON.stringify({ url, type, quality, folder })
@@ -594,7 +596,7 @@
       async function checkDownloadStatus() {
         if (!currentDownloadId) return;
         try {
-          const res = await fetch(`/api/status/${currentDownloadId}`);
+          const res = await fetch(`${API_ROOT}/api/status/${currentDownloadId}`);
           const d = await res.json();
           if (d.status==='completed') {
             showStatus('Download concluído!','success');
@@ -619,7 +621,7 @@
       // lista de arquivos
       async function loadDownloadsList() {
         try {
-          const res = await fetch('/api/downloads');
+          const res = await fetch(`${API_ROOT}/api/downloads`);
           const files = await res.json();
           downloadsList.innerHTML = '';
           if (!files.length) {
