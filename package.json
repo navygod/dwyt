@@ -1,0 +1,22 @@
+{
+  "name": "youtube-downloader-netlify",
+  "version": "1.0.0",
+  "description": "Função Netlify para download de vídeos/áudio do YouTube",
+  "main": "netlify/functions/api.js",
+  "scripts": {
+    "start": "netlify dev",
+    "build": "echo \"No build step required\""
+  },
+  "dependencies": {
+    "@distube/ytdl-core": "^4.16.12",
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "fluent-ffmpeg": "^2.1.2",
+    "serverless-http": "^3.0.0",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "netlify-cli": "^22.2.1"
+  }
+}
