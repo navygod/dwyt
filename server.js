@@ -28,47 +28,108 @@ async function downloadVideo(url, type, quality, folder, id, title) {
   downloadStatus[id] = { status:'starting', message:'Iniciando download…', timestamp: new Date().toISOString() };
 
   // ────── ÁUDIO ────────────────────────────────────────────────────────────
-  if (type === 'audio') {
-    try {
-      // mantém seu bloco de áudio com ytdl + ffmpeg…
-      const audioQuality = quality === 'best'
-        ? 'highestaudio'
-        : quality === 'worst'
-          ? 'lowestaudio'
-          : `highestaudio[audioBitrate<=${quality}]`;
+if (type === 'audio') {
+  try {
+    const info = await ytdl.getInfo(url);
+    const audioFormats = info.formats.filter(f => f.hasAudio && !f.hasVideo);
+    
+    console.log('Faixas de áudio disponíveis:');
+    audioFormats.forEach(f => {
+      console.log({
+        itag: f.itag,
+        mimeType: f.mimeType,
+        audioBitrate: f.audioBitrate,
+        language: f.language || f.languageCode || 'desconhecido',
+        approxDurationMs: f.approxDurationMs
+      });
+    });
 
-      const stream = ytdl(url, { quality: audioQuality });
-      const filename = `${title}.mp3`;
-      const output = path.join(outDir, filename);
-
-      ffmpeg(stream)
-        .audioBitrate(quality!=='best'&&quality!=='worst'? parseInt(quality) : 192)
-        .save(output)
-        .on('progress', p => {
-          downloadStatus[id] = {
-            status:'downloading',
-            message:`Processando: ${p.targetSize}kb`,
-            timestamp: new Date().toISOString()
-          };
-        })
-        .on('end', () => {
-          downloadStatus[id] = {
-            status:'completed',
-            message:'Download concluído!',
-            timestamp: new Date().toISOString(),
-            file: filename
-          };
-        })
-        .on('error', err => {
-          downloadStatus[id] = { status:'error', message: err.message, timestamp: new Date().toISOString() };
-        });
-
-    } catch (err) {
-      downloadStatus[id] = { status:'error', message: err.message, timestamp: new Date().toISOString() };
+    // Seleciona o formato de áudio baseado na qualidade
+    let selectedAudioFormat;
+    
+    if (quality === 'best') {
+      // Seleciona o áudio com maior bitrate
+      selectedAudioFormat = audioFormats
+        .sort((a, b) => (b.audioBitrate || 0) - (a.audioBitrate || 0))[0];
+    } else if (quality === 'worst') {
+      // Seleciona o áudio com menor bitrate
+      selectedAudioFormat = audioFormats
+        .sort((a, b) => (a.audioBitrate || 0) - (b.audioBitrate || 0))[0];
+    } else {
+      // Tenta encontrar um formato próximo ao bitrate especificado
+      const targetBitrate = parseInt(quality);
+      selectedAudioFormat = audioFormats
+        .filter(f => f.audioBitrate && f.audioBitrate <= targetBitrate)
+        .sort((a, b) => (b.audioBitrate || 0) - (a.audioBitrate || 0))[0];
+      
+      // Se não encontrar nenhum formato dentro do limite, usa o de menor bitrate
+      if (!selectedAudioFormat) {
+        selectedAudioFormat = audioFormats
+          .sort((a, b) => (a.audioBitrate || 0) - (b.audioBitrate || 0))[0];
+      }
     }
 
-    return;
+    if (!selectedAudioFormat) {
+      throw new Error('Nenhum formato de áudio encontrado');
+    }
+
+    console.log('Formato de áudio selecionado:', {
+      itag: selectedAudioFormat.itag,
+      audioBitrate: selectedAudioFormat.audioBitrate,
+      mimeType: selectedAudioFormat.mimeType
+    });
+
+    // Usa o itag específico do formato selecionado
+    const stream = ytdl(url, { filter: format => format.itag === selectedAudioFormat.itag });
+    const filename = `${title}.mp3`;
+    const output = path.join(outDir, filename);
+
+    // Define o bitrate final para o FFmpeg
+    let finalBitrate = 192; // padrão
+    if (quality !== 'best' && quality !== 'worst') {
+      finalBitrate = Math.min(parseInt(quality), selectedAudioFormat.audioBitrate || 192);
+    } else if (selectedAudioFormat.audioBitrate) {
+      finalBitrate = Math.min(selectedAudioFormat.audioBitrate, 320); // máximo 320kbps
+    }
+
+    ffmpeg(stream)
+      .audioBitrate(finalBitrate)
+      .save(output)
+      .on('progress', p => {
+        downloadStatus[id] = {
+          status: 'downloading',
+          message: `Processando: ${p.targetSize}kb (${finalBitrate}kbps)`,
+          timestamp: new Date().toISOString()
+        };
+      })
+      .on('end', () => {
+        downloadStatus[id] = {
+          status: 'completed',
+          message: 'Download concluído!',
+          timestamp: new Date().toISOString(),
+          file: filename
+        };
+      })
+      .on('error', err => {
+        console.error('Erro no FFmpeg:', err);
+        downloadStatus[id] = { 
+          status: 'error', 
+          message: `Erro no processamento: ${err.message}`, 
+          timestamp: new Date().toISOString() 
+        };
+      });
+
+  } catch (err) {
+    console.error('Erro geral no download de áudio:', err);
+    downloadStatus[id] = { 
+      status: 'error', 
+      message: `Erro: ${err.message}`, 
+      timestamp: new Date().toISOString() 
+    };
   }
+
+  return;
+}
 
   // ────── VÍDEO ────────────────────────────────────────────────────────────
   try {

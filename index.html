@@ -143,6 +143,11 @@
             border: 2px solid #e0e0e0;
         }
 
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
         .btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
@@ -152,6 +157,16 @@
             opacity: 0.6;
             cursor: not-allowed;
             transform: none;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .btn-group .btn {
+            flex: 1;
         }
 
         .video-info {
@@ -263,6 +278,17 @@
             100% { transform: rotate(360deg); }
         }
 
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .card-header h2 {
+            margin: 0;
+        }
+
         @media (max-width: 768px) {
             .main-content {
                 grid-template-columns: 1fr;
@@ -275,6 +301,16 @@
             .radio-group {
                 flex-direction: column;
                 gap: 10px;
+            }
+
+            .btn-group {
+                flex-direction: column;
+            }
+
+            .card-header {
+                flex-direction: column;
+                gap: 15px;
+                align-items: stretch;
             }
         }
     </style>
@@ -296,9 +332,14 @@
             <div class="form-group">
               <label for="videoUrl">🔗 URL do Vídeo:</label>
               <input type="url" id="videoUrl" class="url-input" placeholder="Cole aqui a URL do vídeo…" required>
-              <button type="button" id="getInfoBtn" class="btn btn-secondary" style="margin-top: 10px;">
-                📋 Obter Informações
-              </button>
+              <div class="btn-group">
+                <button type="button" id="getInfoBtn" class="btn btn-secondary">
+                  📋 Obter Informações
+                </button>
+                <button type="button" id="clearFormBtn" class="btn btn-danger">
+                  🗑️ Limpar
+                </button>
+              </div>
             </div>
   
             <!-- Exibição das infos -->
@@ -349,8 +390,13 @@
   
         <!-- Lista de Downloads -->
         <div class="card">
-          <h2>📁 Arquivos Baixados</h2>
-          <button type="button" id="refreshBtn" class="btn btn-secondary">🔄 Atualizar Lista</button>
+          <div class="card-header">
+            <h2>📁 Arquivos Baixados</h2>
+            <div class="btn-group">
+              <button type="button" id="refreshBtn" class="btn btn-secondary">🔄 Atualizar Lista</button>
+              <button type="button" id="clearListBtn" class="btn btn-danger">🗑️ Limpar Lista</button>
+            </div>
+          </div>
           <div class="downloads-list" id="downloadsList"></div>
         </div>
       </div>
@@ -370,11 +416,17 @@
       const downloadsList = document.getElementById('downloadsList');
       const qualitySelect = document.getElementById('quality');
       const getInfoBtn = document.getElementById('getInfoBtn');
+      const clearFormBtn = document.getElementById('clearFormBtn');
+      const clearListBtn = document.getElementById('clearListBtn');
   
       function showStatus(msg, type='info') {
         statusMessage.textContent = msg;
         statusMessage.className = `status-message status-${type}`;
         statusMessage.style.display = 'block';
+      }
+
+      function hideStatus() {
+        statusMessage.style.display = 'none';
       }
   
       function formatDuration(sec) {
@@ -424,6 +476,44 @@
         }
       }
       // ──────────────────────────────────────────────────────────────────────
+
+      // Função para limpar o formulário
+      function clearForm() {
+        document.getElementById('videoUrl').value = '';
+        document.getElementById('folderPath').value = '';
+        videoInfo.style.display = 'none';
+        qualitySelect.innerHTML = '';
+        fetchedFormats = [];
+        progressBar.style.display = 'none';
+        progressFill.style.width = '0%';
+        hideStatus();
+        loadingSpinner.style.display = 'none';
+        
+        // Para o monitoramento de status se estiver rodando
+        if (statusCheckInterval) {
+          clearInterval(statusCheckInterval);
+          statusCheckInterval = null;
+        }
+        currentDownloadId = null;
+        
+        // Reseta o tipo de download para vídeo
+        document.getElementById('video').checked = true;
+        document.getElementById('audio').checked = false;
+      }
+
+      // Função para limpar a lista de downloads
+      async function clearDownloadsList() {
+        if (confirm('Tem certeza que deseja limpar toda a lista de downloads? Esta ação não pode ser desfeita.')) {
+          try {
+            // Aqui você poderia implementar uma rota no servidor para deletar os arquivos
+            // Por enquanto, vamos apenas limpar a visualização
+            downloadsList.innerHTML = '<p style="text-align:center;color:#666">Lista limpa! Atualize para ver os arquivos novamente.</p>';
+            showStatus('Lista de downloads limpa!', 'success');
+          } catch (error) {
+            showStatus('Erro ao limpar a lista', 'error');
+          }
+        }
+      }
   
       // ao mudar tipo (vídeo/áudio), refaz a lista
       document.querySelectorAll('input[name="downloadType"]').forEach(radio =>
@@ -431,6 +521,10 @@
           if (fetchedFormats.length) populateQuality();
         })
       );
+
+      // Event listeners para os botões de limpeza
+      clearFormBtn.addEventListener('click', clearForm);
+      clearListBtn.addEventListener('click', clearDownloadsList);
   
       // obter informações do vídeo e formatos
       getInfoBtn.addEventListener('click', async () => {
